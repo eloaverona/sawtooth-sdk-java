@@ -7,13 +7,23 @@
         android:layout_height="match_parent"
         tools:context=".MainActivity">
 
-    <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hello World!"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="parent"/>
+    <Button
+            android:text="@string/new_game"
+            android:layout_width="@dimen/button_width"
+            android:layout_height="99dp"
+            android:id="@+id/newGameBtn"
+            app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintHorizontal_bias="0.5" app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/listGameBtn"
+            app:layout_constraintVertical_chainStyle="packed" android:onClick="createNewGame"/>
+    <Button
+            android:text="@string/list_games"
+            android:layout_width="@dimen/button_width"
+            android:layout_height="@dimen/button_height"
+            app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
+            android:id="@+id/listGameBtn"
+            app:layout_constraintTop_toBottomOf="@+id/newGameBtn" app:layout_constraintHorizontal_bias="0.501"
+            app:layout_constraintBottom_toBottomOf="parent" android:layout_marginTop="32dp"
+            android:onClick="listGames"/>
 
 </android.support.constraint.ConstraintLayout>

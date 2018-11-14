@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Sawtooth-XO</string>
+    <string name="new_game">New Game</string>
+    <string name="list_games">List Games</string>
 </resources>
