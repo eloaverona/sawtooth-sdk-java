@@ -11,6 +11,4 @@ class ListGamesActivity : AppCompatActivity() {
         setContentView(R.layout.activity_list_games)
     }
 
-
-
 }
