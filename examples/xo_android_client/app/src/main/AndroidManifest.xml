@@ -22,8 +22,8 @@
             </intent-filter>
         </activity>
         <activity
-                android:name=".GameBoardActivity"
-                android:label="Game Board"
+                android:name=".CreateGameActivity"
+                android:label="Create Game"
                 android:parentActivityName=".MainActivity">
 
             <!-- The meta-data tag is required if you support API level 15 and lower -->
@@ -38,6 +38,15 @@
             <meta-data
                     android:name="android.support.PARENT_ACTIVITY"
                     android:value="io.bitwise.sawtooth_xo.MainActivity"/>
+        </activity>
+        <activity
+            android:name=".GameBoardActivity"
+            android:label="Game Board"
+            android:parentActivityName=".MainActivity">
+
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MainActivity"/>
         </activity>
     </application>
 
