@@ -1,32 +1,51 @@
 package io.bitwise.sawtooth_xo
 
+import android.arch.lifecycle.Observer
+import android.arch.lifecycle.ViewModelProviders
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.support.v4.content.ContextCompat
 import android.support.v7.app.AlertDialog
 import android.view.*
 import android.widget.*
 import io.bitwise.sawtooth_xo.models.Game
 import com.google.gson.Gson
+import io.bitwise.sawtooth_xo.state.rest_api.XORequestHandler
+import io.bitwise.sawtooth_xo.viewmodels.GameBoardViewModel
+import sawtooth.sdk.signing.Secp256k1PrivateKey
 
 
-class GameBoardActivity : AppCompatActivity() {
+class GameBoardActivity : AppCompatActivity(), View.OnClickListener{
 
     var game: Game? = null
+    private lateinit var model: GameBoardViewModel
+    private var requestHandler: XORequestHandler? = null
+    private val gson = Gson()
+
     private var gameBoard: MutableList<Button> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         val intent = this.intent
         val displayGame = getGameObject(intent.getStringExtra("selectedGame"))
         this.game = displayGame
 
+        requestHandler = XORequestHandler(getRestApiUrl(this,
+                        getString(R.string.rest_api_settings_key),
+                        getString(R.string.default_rest_api_address)),
+                        getPrivateKey(intent.getStringExtra("privateKey")))
+
         setContentView(R.layout.activity_game_board)
         setSupportActionBar(findViewById(R.id.game_board_menu))
 
-        updateGameInformation(displayGame)
         collectButtons()
-        updateBoard()
+
+        model = ViewModelProviders.of(this).get(GameBoardViewModel::class.java)
+        model.game.observe(this, Observer<Game> { fetchedGame ->
+            game = fetchedGame
+            updateBoard()
+        })
+        model.loadGame(game?.name!!)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -36,7 +55,7 @@ class GameBoardActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         R.id.refresh_board -> {
-            updateBoard()
+            model.loadGame(game?.name!!)
             true
 
         }
@@ -51,16 +70,19 @@ class GameBoardActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateGameInformation(item: Game) {
+    private fun updateGameInformation() {
         val boardName: TextView = this.findViewById(R.id.game_board_name)
-        boardName.text = item.name
+        boardName.text = game?.name
         val gameState: TextView = this.findViewById(R.id.game_board_state)
-        gameState.text = item.gameState
+        gameState.text = game?.gameState
     }
 
     private fun getGameObject(game: String): Game {
-        val gson = Gson()
         return gson.fromJson<Game>(game, Game::class.java)
+    }
+
+    private fun getPrivateKey(privateKey: String) : Secp256k1PrivateKey {
+        return gson.fromJson(privateKey, Secp256k1PrivateKey::class.java)
     }
 
     private fun showAlertDialog(item: Game?) {
@@ -89,19 +111,38 @@ class GameBoardActivity : AppCompatActivity() {
             val tableRow: TableRow = findViewById(layout.getChildAt(i).id)
             for ( j in 0..tableRow.childCount step 2) {
                 val button: Button = findViewById(tableRow.getChildAt(j).id)
+                button.setOnClickListener(this)
                 gameBoard.add(button)
             }
         }
     }
 
     private fun updateBoard() {
+        updateGameInformation()
         gameBoard.forEachIndexed { index, button ->
             when (game?.board?.get(index)) {
                 'X', 'O' -> {
                     button.text = game?.board?.get(index).toString()
                     button.isClickable = false
-                }
+                    button.setBackgroundColor(ContextCompat.getColor(this, R.color.design_default_color_primary_dark))
+                } else -> {
+                    button.setBackgroundColor(ContextCompat.getColor(this, R.color.design_default_color_primary))
+            }
             }
         }
     }
+
+    override fun onClick(v: View) {
+        val itemId = v.id
+        val intSpace = (gameBoard.indexOfFirst { it.id == itemId }) + 1
+        requestHandler?.takeSpace(
+            game?.name!!,
+            intSpace.toString(),
+            applicationContext,
+            getRestApiUrl(this,
+                getString(R.string.rest_api_settings_key),
+                getString(R.string.default_rest_api_address)))
+        v.setBackgroundColor(ContextCompat.getColor(this, R.color.selected_button))
+    }
+
 }
