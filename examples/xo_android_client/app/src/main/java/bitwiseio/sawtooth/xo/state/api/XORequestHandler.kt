@@ -1,9 +1,9 @@
 package bitwiseio.sawtooth.xo.state.api
 
-import android.content.Context
 import android.net.Uri
+import android.support.design.widget.Snackbar
 import android.util.Log
-import android.widget.Toast
+import android.view.View
 import com.google.protobuf.ByteString
 import okhttp3.MediaType
 import okhttp3.RequestBody
@@ -34,18 +34,22 @@ class XORequestHandler(private var restApiURL: String, privateKey: PrivateKey) {
         signer = Signer(context, privateKey)
     }
 
-    fun createGame(gameName: String, context: Context, restApiURL: String) {
+    fun createGame(gameName: String, view: View, restApiURL: String, callback: (Boolean) -> Unit) {
         checkURLChanged(restApiURL)
         val createGameTransaction = makeTransaction(gameName, "create", null)
         val batch = makeBatch(arrayOf(createGameTransaction))
-        sendRequest(batch, context)
+        sendRequest(batch, view, callback={ it->
+            callback(it)
+        })
     }
 
-    fun takeSpace(gameName: String, space: String, context: Context, restApiURL: String) {
+    fun takeSpace(gameName: String, space: String, view: View, restApiURL: String, callback: (Boolean) -> Unit) {
         checkURLChanged(restApiURL)
         val takeSpaceTransaction = makeTransaction(gameName, "take", space)
         val batch = makeBatch(arrayOf(takeSpaceTransaction))
-        sendRequest(batch, context)
+        sendRequest(batch, view, callback={ it->
+            callback(it)
+        })
     }
 
     private fun checkURLChanged(url: String) {
@@ -104,7 +108,7 @@ class XORequestHandler(private var restApiURL: String, privateKey: PrivateKey) {
             .build()
     }
 
-    private fun sendRequest(batch: Batch, context: Context) {
+    private fun sendRequest(batch: Batch, view: View, callback: (Boolean) -> Unit) {
         val batchList = BatchList.newBuilder()
             .addBatches(batch)
             .build()
@@ -117,23 +121,23 @@ class XORequestHandler(private var restApiURL: String, privateKey: PrivateKey) {
             override fun onResponse(call: Call<BatchListResponse>, response: Response<BatchListResponse>) {
                 if (response.body() != null) {
                     Log.d("XO.State", response.body().toString())
-                    Toast.makeText(context, "Transaction submitted", Toast.LENGTH_SHORT).show()
-
-                    waitForBatch(response.body()?.link, 5, context)
+                    waitForBatch(response.body()?.link, 5, view, callback={ it ->
+                        callback(it)
+                    })
                 } else {
-                    Toast.makeText(context, "Failed to submit transaction", Toast.LENGTH_LONG).show()
+                    Snackbar.make(view, "Failed to submit transaction", Snackbar.LENGTH_LONG).show()
                     Log.d("XO.State", response.toString())
                 }
             }
             override fun onFailure(call: Call<BatchListResponse>, t: Throwable) {
                 Log.d("XO.State", t.toString())
-                Toast.makeText(context, "Failed to submit transaction", Toast.LENGTH_LONG).show()
+                Snackbar.make(view, "Failed to submit transaction", Snackbar.LENGTH_LONG).show()
                 call.cancel()
             }
         })
     }
 
-    private fun waitForBatch(batchLink: String?, wait: Int, context: Context) {
+    private fun waitForBatch(batchLink: String?, wait: Int, view: View, callback: (Boolean) -> Unit) {
         val uri = Uri.parse(batchLink)
         val batchId = uri.getQueryParameter("id")
         if (batchId != null) {
@@ -141,17 +145,43 @@ class XORequestHandler(private var restApiURL: String, privateKey: PrivateKey) {
             call1?.enqueue(object : Callback<BatchStatusResponse> {
                 override fun onResponse(call: Call<BatchStatusResponse>, response: Response<BatchStatusResponse>) {
                     Log.d("XO.State", response.body().toString())
-                    Toast.makeText(context, "Batch status: " + response.body()?.data?.get(0)?.status, Toast.LENGTH_LONG).show()
+                    val batchResponse = response.body()?.let { handleBatchStatus(it) }
+                    Snackbar.make(view, batchResponse.toString(), Snackbar.LENGTH_LONG).show()
+                    callback(true)
                 }
                 override fun onFailure(call: Call<BatchStatusResponse>, t: Throwable) {
                     Log.d("XO.State", t.toString())
-                    Toast.makeText(context, "Failed to get batch status", Toast.LENGTH_LONG).show()
+                    Snackbar.make(view, "Failed to get batch status", Snackbar.LENGTH_LONG).show()
                     call.cancel()
                 }
             })
         } else {
             Log.d("XO.State", "Failed to retrieve batch id. Cannot request batch status.")
-            Toast.makeText(context, "Failed to get batch status", Toast.LENGTH_LONG).show()
+            Snackbar.make(view, "Failed to get batch status", Snackbar.LENGTH_LONG).show()
+        }
+    }
+
+    private fun handleBatchStatus(batchResponse: BatchStatusResponse): String {
+        val status = batchResponse.data?.get(0)?.status
+        when (status) {
+            "INVALID" -> {
+                val invalidTransaction = batchResponse.data?.get(0)?.invalidTransactions[0]
+                Log.d("XO.State", invalidTransaction.id)
+                Log.d("XO.State", invalidTransaction.message)
+                return invalidTransaction.message.toString()
+            }
+            "COMMITTED" -> {
+                return "Batch Successfully Committed"
+            }
+            "PENDING" -> {
+                return "Batch Pending"
+            }
+            "UNKNOWN" -> {
+                return "Batch Status Unknown"
+            }
+            else -> {
+                return "Unhandled Status"
+            }
         }
     }
 }
